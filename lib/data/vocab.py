@@ -6,7 +6,6 @@ from enum import Enum
 from itertools import chain
 from typing import Optional, Dict, Iterable, Set, NamedTuple
 
-import tensorflow as tf
 from lib.config import Config
 
 
@@ -59,7 +58,7 @@ class Vocab:
         self.size = len(self.word_to_index)
 
     def save_to_file(self, file):
-        # Notice: From historical reasons, a saved vocab doesn't include special words.
+        # Remove special words before saving vocab
         special_words_as_unique_list = get_unique_list(self.special_words.__dict__.values())
         nr_special_words = len(special_words_as_unique_list)
         word_to_index_wo_specials = {word: idx for word, idx in self.word_to_index.items() if idx >= nr_special_words}
@@ -73,9 +72,7 @@ class Vocab:
     def load_from_file(cls, vocab_type: VocabType, file, special_words: SpecialVocabWordsType) -> 'Vocab':
         special_words_as_unique_list = get_unique_list(special_words.__dict__.values())
 
-        # Notice: From historical reasons, a saved vocab doesn't include special words,
-        #         so they should be added upon loading.
-
+        # Add special words after loading vocab
         word_to_index_wo_specials = pickle.load(file)
         index_to_word_wo_specials = pickle.load(file)
         size_wo_specials = pickle.load(file)
@@ -109,47 +106,17 @@ class Vocab:
         words_sorted_by_counts_and_limited = words_sorted_by_counts[:max_size]
         return cls(vocab_type, words_sorted_by_counts_and_limited, special_words)
 
-    @staticmethod
-    def _create_word_to_index_lookup_table(word_to_index: Dict[str, int], default_value: int):
-        return tf.lookup.StaticHashTable(
-            tf.lookup.KeyValueTensorInitializer(
-                list(word_to_index.keys()), list(word_to_index.values()), key_dtype=tf.string, value_dtype=tf.int32),
-            default_value=tf.constant(default_value, dtype=tf.int32))
+    def lookup_index(self, word: str) -> int:
+        return self.word_to_index.get(word, default=self.word_to_index[self.special_words.OOV])
 
-    @staticmethod
-    def _create_index_to_word_lookup_table(index_to_word: Dict[int, str], default_value: str) \
-            -> tf.lookup.StaticHashTable:
-        return tf.lookup.StaticHashTable(
-            tf.lookup.KeyValueTensorInitializer(
-                list(index_to_word.keys()), list(index_to_word.values()), key_dtype=tf.int32, value_dtype=tf.string),
-            default_value=tf.constant(default_value, dtype=tf.string))
-
-    def get_word_to_index_lookup_table(self) -> tf.lookup.StaticHashTable:
-        if self._word_to_index_lookup_table is None:
-            self._word_to_index_lookup_table = self._create_word_to_index_lookup_table(
-                self.word_to_index, default_value=self.word_to_index[self.special_words.OOV])
-        return self._word_to_index_lookup_table
-
-    def get_index_to_word_lookup_table(self) -> tf.lookup.StaticHashTable:
-        if self._index_to_word_lookup_table is None:
-            self._index_to_word_lookup_table = self._create_index_to_word_lookup_table(
-                self.index_to_word, default_value=self.special_words.OOV)
-        return self._index_to_word_lookup_table
-
-    def lookup_index(self, word: tf.Tensor) -> tf.Tensor:
-        return self.get_word_to_index_lookup_table().lookup(word)
-
-    def lookup_word(self, index: tf.Tensor) -> tf.Tensor:
-        return self.get_index_to_word_lookup_table().lookup(index)
-
-
-WordFreqDictType = Dict[str, int]
+    def lookup_word(self, index: int) -> str:
+        return self.index_to_word.get(index, default=self.special_words.OOV)
 
 
 class Code2VecWordFrequencies(NamedTuple):
-    token_to_count: WordFreqDictType
-    path_to_count: WordFreqDictType
-    target_to_count: WordFreqDictType
+    token_to_count: Dict[str, int]
+    path_to_count: Dict[str, int]
+    target_to_count: Dict[str, int]
 
 
 class Code2VecVocab:
@@ -161,7 +128,6 @@ class Code2VecVocab:
 
         # Used to avoid re-saving a non-modified vocabulary to a path it is already saved in.
         self._already_saved_in_paths: Set[str] = set()
-
         self._load_or_create()
 
     def _load_or_create(self):
@@ -229,7 +195,7 @@ class Code2VecVocab:
             path_to_count = pickle.load(file)
             target_to_count = pickle.load(file)
         self.config.log('Done loading word frequencies dictionaries.')
-        # assert all(isinstance(item, WordFreqDictType) for item in {token_to_count, path_to_count, target_to_count})
+
         return Code2VecWordFrequencies(
             token_to_count=token_to_count, path_to_count=path_to_count, target_to_count=target_to_count)
 
