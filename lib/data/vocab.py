@@ -3,7 +3,7 @@ from argparse import Namespace
 from collections import OrderedDict
 from enum import Enum
 from itertools import chain
-from typing import Optional, Dict, Iterable, Set, NamedTuple
+from typing import Optional, Dict, Iterable, Set, Tuple
 
 
 class VocabType(Enum):
@@ -19,6 +19,13 @@ _SpecialVocabWords_JoinedOovPad = Namespace(PAD_OR_OOV='<PAD_OR_OOV>', PAD='<PAD
 
 def get_unique_list(lst: Iterable) -> list:
     return list(OrderedDict(((item, 0) for item in lst)).keys())
+
+
+def get_special_words_by_vocab_type(vocab_type: VocabType) -> Namespace:
+    if vocab_type == VocabType.Target:
+        return _SpecialVocabWords_OnlyOov
+    else:
+        return _SpecialVocabWords_OovAndPad
 
 
 class Vocab:
@@ -96,12 +103,6 @@ class Vocab:
         return self.index_to_word.get(index, self.special_words.OOV)
 
 
-class Code2VecWordFrequencies(NamedTuple):
-    token_to_count: Dict[str, int]
-    path_to_count: Dict[str, int]
-    target_to_count: Dict[str, int]
-
-
 class Code2VecVocab:
     def __init__(self, config: Namespace):
         self.config = config
@@ -122,36 +123,30 @@ class Code2VecVocab:
     def _load_from_path(self, vocabularies_load_path: str):
         with open(vocabularies_load_path, 'rb') as file:
             self.token_vocab = Vocab.load_from_file(
-                VocabType.Token, file, self._get_special_words_by_vocab_type(VocabType.Token))
+                VocabType.Token, file, get_special_words_by_vocab_type(VocabType.Token))
             self.target_vocab = Vocab.load_from_file(
-                VocabType.Target, file, self._get_special_words_by_vocab_type(VocabType.Target))
+                VocabType.Target, file, get_special_words_by_vocab_type(VocabType.Target))
             self.path_vocab = Vocab.load_from_file(
-                VocabType.Path, file, self._get_special_words_by_vocab_type(VocabType.Path))
+                VocabType.Path, file, get_special_words_by_vocab_type(VocabType.Path))
         self._already_saved_in_paths.add(vocabularies_load_path)
 
     def _create_from_word_freq_dict(self):
-        word_freq_dict = self._load_word_freq_dict()
+        token_to_count, path_to_count, target_to_count = self._load_word_freq_dict()
 
         self.token_vocab = Vocab.create_from_freq_dict(
-            VocabType.Token, word_freq_dict.token_to_count, self.config.max_token_vocab_size,
-            special_words=self._get_special_words_by_vocab_type(VocabType.Token))
+            VocabType.Token, token_to_count, self.config.max_token_vocab_size,
+            special_words=get_special_words_by_vocab_type(VocabType.Token))
         print('Token vocab. size: %d' % self.token_vocab.size)
 
         self.path_vocab = Vocab.create_from_freq_dict(
-            VocabType.Path, word_freq_dict.path_to_count, self.config.max_path_vocab_size,
-            special_words=self._get_special_words_by_vocab_type(VocabType.Path))
+            VocabType.Path, path_to_count, self.config.max_path_vocab_size,
+            special_words=get_special_words_by_vocab_type(VocabType.Path))
         print('Path vocab. size: %d' % self.path_vocab.size)
 
         self.target_vocab = Vocab.create_from_freq_dict(
-            VocabType.Target, word_freq_dict.target_to_count, self.config.max_target_vocab_size,
-            special_words=self._get_special_words_by_vocab_type(VocabType.Target))
+            VocabType.Target, target_to_count, self.config.max_target_vocab_size,
+            special_words=get_special_words_by_vocab_type(VocabType.Target))
         print('Target vocab. size: %d' % self.target_vocab.size)
-
-    def _get_special_words_by_vocab_type(self, vocab_type: VocabType) -> Namespace:
-        if vocab_type == VocabType.Target:
-            return _SpecialVocabWords_OnlyOov
-        else:
-            return _SpecialVocabWords_OovAndPad
 
     def save(self, vocabularies_save_path: str):
         if vocabularies_save_path in self._already_saved_in_paths:
@@ -162,18 +157,14 @@ class Code2VecVocab:
             self.path_vocab.save_to_file(file)
         self._already_saved_in_paths.add(vocabularies_save_path)
 
-    def _load_word_freq_dict(self) -> Code2VecWordFrequencies:
+    def _load_word_freq_dict(self) -> Tuple:
         with open(self.config.word_freq_dict_path, 'rb') as file:
             token_to_count = pickle.load(file)
             path_to_count = pickle.load(file)
             target_to_count = pickle.load(file)
-
-        return Code2VecWordFrequencies(
-            token_to_count=token_to_count, path_to_count=path_to_count, target_to_count=target_to_count)
+        return token_to_count, path_to_count, target_to_count
 
     def get(self, vocab_type: VocabType) -> Vocab:
-        if not isinstance(vocab_type, VocabType):
-            raise ValueError('`vocab_type` should be `VocabType.Token`, `VocabType.Target` or `VocabType.Path`.')
         if vocab_type == VocabType.Token:
             return self.token_vocab
         if vocab_type == VocabType.Target:

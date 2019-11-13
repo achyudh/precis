@@ -2,7 +2,6 @@ import datetime
 import os
 
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm, trange
 
@@ -16,6 +15,7 @@ class Code2VecTrainer(object):
         self.model = model
         self.optimizer = optimizer
 
+        self.loss_function = torch.nn.CrossEntropyLoss(reduction='mean')
         self.train_dataset = dataset(config, reader, split=DatasetSplit.Train)
         self.dev_evaluator = Code2VecEvaluator(config, model, reader, split=DatasetSplit.Dev)
 
@@ -38,7 +38,7 @@ class Code2VecTrainer(object):
             target_indices = batch.target_index.to(self.config.device)
 
             logits = self.model(source_token_indices, path_indices, target_token_indices, context_valid_mask)
-            loss = F.cross_entropy(logits, target_indices)
+            loss = self.loss_function(logits, target_indices)
 
             if self.config.n_gpu > 1:
                 loss = loss.mean()
