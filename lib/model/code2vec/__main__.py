@@ -21,7 +21,7 @@ def evaluate_split(config, model, reader, split):
     evaluator = Code2VecEvaluator(config, model, reader, split)
     accuracy, precision, recall, f1, avg_loss = evaluator.get_scores(silent=True)[0]
     print('\n' + LOG_HEADER)
-    print(LOG_TEMPLATE.format(split.upper(), accuracy, precision, recall, f1, avg_loss))
+    print(LOG_TEMPLATE.format(split.value, accuracy, precision, recall, f1, avg_loss))
 
 
 if __name__ == '__main__':

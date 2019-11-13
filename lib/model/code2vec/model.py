@@ -31,6 +31,6 @@ class Code2Vec(nn.Module):
 
         code_embed = torch.reshape(context_embed, (-1, self.config.max_contexts, self.config.context_vector_size))  # (batch, max_contexts, context_vector_size)
         code_embed = torch.sum(code_embed * attention_weights, dim=1)  # (batch, context_vector_size)
-        logits = self.output_linear(code_embed)
+        logits = self.output_linear(code_embed)  # (batch, target_vocab_size)
 
         return logits
