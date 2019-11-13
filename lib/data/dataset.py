@@ -1,9 +1,9 @@
 import abc
+from argparse import Namespace
+from enum import Enum
 
-from torch import Tensor
 from torch.utils.data import Dataset
 
-from lib.config import Config
 from lib.data.reader import PathContextReader, ReaderInputTensors
 
 
@@ -27,18 +27,34 @@ class AbstractInputTransformer(abc.ABC):
         pass
 
 
-class JavaSummarizationDataset(Dataset):
-    def __init__(self, config: Config, reader: PathContextReader):
-        self.input_tensors = list()
-        estimator_action = reader.estimator_action
+class DatasetSplit(Enum):
+    Train = 'train'
+    Dev = 'dev'
+    Test = 'test'
 
-        with open(config.data_path(is_evaluating=estimator_action.is_evaluate)) as csv_file:
+    @property
+    def is_train(self):
+        return self is DatasetSplit.Train
+
+    @property
+    def is_dev(self):
+        return self is DatasetSplit.Dev
+
+    @property
+    def is_test(self):
+        return self is DatasetSplit.Test
+
+
+class JavaSummarizationDataset(Dataset):
+    def __init__(self, config: Namespace, reader: PathContextReader, split: DatasetSplit):
+        self.input_tensors = list()
+        with open(config.data_path(split)) as csv_file:
             for input_row in csv_file:
-                input_tensor = reader.process_input_row(input_row)
-                if reader.is_valid_input_row(input_tensor):
+                input_tensor = reader.process_input_row(input_row.strip())
+                if reader.is_valid_input_row(input_tensor, split):
                     self.input_tensors.append(input_tensor)
 
-    def __getitem__(self, idx: int) -> Tensor:
+    def __getitem__(self, idx: int) -> ReaderInputTensors:
         return self.input_tensors[idx]
 
     def __len__(self) -> int:
