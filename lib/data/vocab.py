@@ -1,3 +1,4 @@
+import abc
 import pickle
 from argparse import Namespace
 from collections import OrderedDict
@@ -10,11 +11,12 @@ class VocabType(Enum):
     Token = 1
     Target = 2
     Path = 3
+    SeqTarget = 5
 
 
 _SpecialVocabWords_OnlyOov = Namespace(OOV='<OOV>')
 _SpecialVocabWords_OovAndPad = Namespace(PAD='<PAD>', OOV='<OOV>')
-_SpecialVocabWords_JoinedOovPad = Namespace(PAD_OR_OOV='<PAD_OR_OOV>', PAD='<PAD_OR_OOV>', OOV='<PAD_OR_OOV>')
+_SpecialVocabWords_OovPadSos = Namespace(PAD='<PAD>', OOV='<OOV>', SOS='<S>')
 
 
 def get_unique_list(lst: Iterable) -> list:
@@ -24,6 +26,8 @@ def get_unique_list(lst: Iterable) -> list:
 def get_special_words_by_vocab_type(vocab_type: VocabType) -> Namespace:
     if vocab_type == VocabType.Target:
         return _SpecialVocabWords_OnlyOov
+    elif vocab_type == VocabType.SeqTarget:
+        return _SpecialVocabWords_OovPadSos
     else:
         return _SpecialVocabWords_OovAndPad
 
@@ -70,14 +74,7 @@ class Vocab:
         min_word_idx_wo_specials = min(index_to_word_wo_specials.keys())
 
         if min_word_idx_wo_specials != len(special_words_as_unique_list):
-            raise ValueError(
-                "Error while attempting to load vocabulary `{vocab_type}` from file `{file_path}`. "
-                "The stored vocabulary has minimum word index {min_word_idx}, "
-                "while expecting minimum word index to be {nr_special_words} "
-                "because having to use {nr_special_words} special words, which are: {special_words}. "
-                "Please check the parameter `config.SEPARATE_OOV_AND_PAD`.".format(
-                    vocab_type=vocab_type, file_path=file.name, min_word_idx=min_word_idx_wo_specials,
-                    nr_special_words=len(special_words_as_unique_list), special_words=special_words))
+            raise ValueError("Error while attempting to load vocabulary")
 
         vocab = cls(vocab_type, [], special_words)
         vocab.word_to_index = {**word_to_index_wo_specials,
@@ -103,9 +100,21 @@ class Vocab:
         return self.index_to_word.get(index, self.special_words.OOV)
 
 
-class Code2VecVocab:
+class AbstractVocabContainer(abc.ABC):
     def __init__(self, config: Namespace):
         self.config = config
+
+    def _load_word_freq_dict(self) -> Tuple:
+        with open(self.config.word_freq_dict_path, 'rb') as file:
+            token_to_count = pickle.load(file)
+            path_to_count = pickle.load(file)
+            target_to_count = pickle.load(file)
+        return token_to_count, path_to_count, target_to_count
+
+
+class Code2VecVocabContainer(AbstractVocabContainer):
+    def __init__(self, config: Namespace):
+        super().__init__(config)
         self.token_vocab: Optional[Vocab] = None
         self.path_vocab: Optional[Vocab] = None
         self.target_vocab: Optional[Vocab] = None
@@ -157,13 +166,6 @@ class Code2VecVocab:
             self.path_vocab.save_to_file(file)
         self._already_saved_in_paths.add(vocabularies_save_path)
 
-    def _load_word_freq_dict(self) -> Tuple:
-        with open(self.config.word_freq_dict_path, 'rb') as file:
-            token_to_count = pickle.load(file)
-            path_to_count = pickle.load(file)
-            target_to_count = pickle.load(file)
-        return token_to_count, path_to_count, target_to_count
-
     def get(self, vocab_type: VocabType) -> Vocab:
         if vocab_type == VocabType.Token:
             return self.token_vocab
@@ -171,3 +173,31 @@ class Code2VecVocab:
             return self.target_vocab
         if vocab_type == VocabType.Path:
             return self.path_vocab
+
+
+class Code2SeqVocabContainer(AbstractVocabContainer):
+    def __init__(self, config: Namespace):
+        super().__init__(config)
+        self.subtoken_vocab: Optional[Vocab] = None
+        self.node_vocab: Optional[Vocab] = None
+        self.target_vocab: Optional[Vocab] = None
+
+        self._create_from_word_freq_dict()
+
+    def _create_from_word_freq_dict(self):
+        subtoken_to_count, node_to_count, target_to_count = self._load_word_freq_dict()
+
+        self.subtoken_vocab = Vocab.create_from_freq_dict(
+            VocabType.Token, subtoken_to_count, self.config.max_subtoken_vocab_size,
+            special_words=get_special_words_by_vocab_type(VocabType.Token))
+        print('Subtoken vocab. size: %d' % self.subtoken_vocab.size)
+
+        self.node_vocab = Vocab.create_from_freq_dict(
+            VocabType.Path, node_to_count, self.config.max_node_vocab_size,
+            special_words=get_special_words_by_vocab_type(VocabType.Path))
+        print('Node vocab. size: %d' % self.node_vocab.size)
+
+        self.target_vocab = Vocab.create_from_freq_dict(
+            VocabType.SeqTarget, target_to_count, self.config.max_target_vocab_size,
+            special_words=get_special_words_by_vocab_type(VocabType.SeqTarget))
+        print('Target vocab. size: %d' % self.target_vocab.size)

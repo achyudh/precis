@@ -1,6 +1,6 @@
 import abc
 
-from lib.data.reader import ReaderInputTensors
+from lib.data.reader import PathContextInput
 
 
 class AbstractInputProcessor(abc.ABC):
@@ -10,5 +10,5 @@ class AbstractInputProcessor(abc.ABC):
     """
 
     @abc.abstractmethod
-    def process(self, input_tensors: ReaderInputTensors):
+    def process(self, input_tensors: PathContextInput):
         pass

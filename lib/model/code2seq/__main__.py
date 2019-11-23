@@ -4,13 +4,13 @@ import random
 import numpy as np
 import torch.onnx
 
-from lib.model.code2vec import Config
-from lib.common.evaluators import Code2VecEvaluator
-from lib.common.trainers import Code2VecTrainer
+from lib.common.evaluators import Code2SeqEvaluator
+from lib.common.trainers import Code2SeqTrainer
 from lib.data.dataset import JavaSummarizationDataset, DatasetSplit
-from lib.data.reader import PathContextReader
-from lib.data.vocab import Code2VecVocabContainer
-from lib.model import Code2Vec
+from lib.data.reader import SequentialPathContextReader
+from lib.data.vocab import Code2SeqVocabContainer
+from lib.model import Code2Seq
+from lib.model.code2seq import Config
 
 # String templates for logging results
 LOG_HEADER = 'Split  Dev/Acc.  Dev/Pr.  Dev/Re.   Dev/F1   Dev/Loss'
@@ -18,7 +18,7 @@ LOG_TEMPLATE = ' '.join('{:>5s},{:>9.4f},{:>8.4f},{:8.4f},{:8.4f},{:10.4f}'.spli
 
 
 def evaluate_split(config, model, reader, split):
-    evaluator = Code2VecEvaluator(config, model, reader, split)
+    evaluator = Code2SeqEvaluator(config, model, reader, split)
     accuracy, precision, recall, f1, avg_loss = evaluator.get_scores(silent=True)[0]
     print('\n' + LOG_HEADER)
     print(LOG_TEMPLATE.format(split.value, accuracy, precision, recall, f1, avg_loss))
@@ -55,9 +55,9 @@ if __name__ == '__main__':
         save_path = os.path.join(config.save_path, config.dataset)
         os.makedirs(save_path, exist_ok=True)
 
-    vocab = Code2VecVocabContainer(config)
-    reader = PathContextReader(config, vocab)
-    model = Code2Vec(config, vocab)
+    vocab = Code2SeqVocabContainer(config)
+    reader = SequentialPathContextReader(config, vocab)
+    model = Code2Seq(config, vocab)
     model.to(device)
 
     if n_gpu > 1:
@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     parameter = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = torch.optim.Adam(parameter, lr=config.lr, weight_decay=config.weight_decay)
-    trainer = Code2VecTrainer(config, model, dataset, reader, optimizer)
+    trainer = Code2SeqTrainer(config, model, dataset, reader, optimizer)
 
     if not config.pretrained_model:
         trainer.train()

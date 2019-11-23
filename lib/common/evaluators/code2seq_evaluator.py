@@ -12,7 +12,7 @@ from lib.data.dataset import JavaSummarizationDataset
 warnings.filterwarnings('ignore')
 
 
-class Code2VecEvaluator(object):
+class Code2SeqEvaluator(object):
     def __init__(self, config, model, reader, split):
         self.model = model
         self.config = config

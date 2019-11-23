@@ -9,10 +9,11 @@ from lib.common.evaluators import Code2VecEvaluator
 from lib.data.dataset import DatasetSplit
 
 
-class Code2VecTrainer(object):
+class Code2SeqTrainer(object):
     def __init__(self, config, model, dataset, reader, optimizer):
         self.model = model
         self.config = config
+        self.vocab = reader.vocab
         self.optimizer = optimizer
 
         self.loss_function = torch.nn.CrossEntropyLoss(reduction='mean')
@@ -31,14 +32,25 @@ class Code2VecTrainer(object):
             self.model.train()
             self.optimizer.zero_grad()
 
-            source_token_indices = batch.source_token_indices.to(self.config.device)
-            path_indices = batch.path_indices.to(self.config.device)
-            target_token_indices = batch.target_token_indices.to(self.config.device)
-            context_valid_mask = batch.context_valid_mask.to(self.config.device)
-            target_indices = batch.target_index.to(self.config.device)
+            source_subtoken_indices = batch.source_subtoken_indices.to(self.config.device)
+            node_indices = batch.node_indices.to(self.config.device)
+            target_subtoken_indices = batch.target_subtoken_indices.to(self.config.device)
 
-            logits = self.model(source_token_indices, path_indices, target_token_indices, context_valid_mask)
-            loss = self.loss_function(logits, target_indices)
+            source_subtoken_lengths = batch.source_subtoken_lengths.to(self.config.device)
+            node_lengths = batch.node_lengths.to(self.config.device)
+            target_subtoken_lengths = batch.target_subtoken_lengths.to(self.config.device)
+
+            context_valid_mask = batch.context_valid_mask.to(self.config.device)
+            target_indices = torch.transpose(batch.target_indices.to(self.config.device), 0, 1)
+
+            logits = self.model(source_subtoken_indices, node_indices, target_subtoken_indices, source_subtoken_lengths,
+                                node_lengths, target_subtoken_lengths, context_valid_mask)
+
+            loss = 0
+            for di in range(self.config.max_target_length):
+                loss += self.loss_function(logits[di], target_indices[di])
+                # if target_indices[di].detach().item() == self.vocab.target_vocab.special_words.PAD:
+                #     break
 
             if self.config.n_gpu > 1:
                 loss = loss.mean()
