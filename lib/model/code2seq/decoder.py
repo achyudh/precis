@@ -10,6 +10,8 @@ class ContextDecoder(nn.Module):
         self.vocab = vocab
 
         self.target_embedding = nn.Embedding(vocab.target_vocab.size, config.target_embedding_dim)
+        self.target_sos_index = self.vocab.target_vocab.word_to_index[self.vocab.target_vocab.special_words.SOS]
+
         self.attention = nn.Linear(config.target_embedding_dim + config.decoder_hidden_dim, config.max_contexts)
         self.attn_combine = nn.Linear(config.target_embedding_dim + config.decoder_hidden_dim, config.decoder_hidden_dim)
         self.lstm = nn.LSTMCell(config.decoder_hidden_dim, config.decoder_hidden_dim)
@@ -27,13 +29,11 @@ class ContextDecoder(nn.Module):
         output = self.output_linear(h_0)  # (batch, target_vocab_size)
         return output, h_0, c_0
 
-    def init_input(self):
-        target_sos_string = self.vocab.target_vocab.special_words.SOS
-        target_sos_index = self.vocab.target_vocab.word_to_index[target_sos_string]
-        return torch.tensor([target_sos_index] * self.config.batch_size, device=self.config.device)  # (batch,)
+    def init_input(self, batch_size):
+        return torch.tensor([self.target_sos_index] * batch_size, device=self.config.device)  # (batch,)
 
-    def init_hidden(self, contexts, context_valid_mask):
+    def init_hidden(self, contexts, context_valid_mask, batch_size):
         context_sum = torch.sum(contexts * torch.unsqueeze(context_valid_mask, -1), dim=1)  # (batch, decoder_hidden_dim)
         h_0 = context_sum / self.config.max_contexts
-        c_0 = torch.zeros((self.config.batch_size, self.config.decoder_hidden_dim), device=self.config.device)
+        c_0 = torch.zeros((batch_size, self.config.decoder_hidden_dim), device=self.config.device)
         return h_0, c_0

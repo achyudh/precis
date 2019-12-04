@@ -6,7 +6,7 @@ from lib import Config
 class Code2VecConfig(Config):
     def __init__(self):
         parser = self.get_args()
-        parser.add_argument('--top-k', type=int, default=10)
+        parser.add_argument('--top-k', type=int, default=1)
         parser.add_argument('--max-contexts', type=int, default=200)
         parser.add_argument('--path-embedding-dim', type=int, default=128)
         parser.add_argument('--token-embedding-dim', type=int, default=128)

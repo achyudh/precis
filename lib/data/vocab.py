@@ -16,7 +16,7 @@ class VocabType(Enum):
 
 _SpecialVocabWords_OnlyOov = Namespace(OOV='<OOV>')
 _SpecialVocabWords_OovAndPad = Namespace(PAD='<PAD>', OOV='<OOV>')
-_SpecialVocabWords_OovPadSos = Namespace(PAD='<PAD>', OOV='<OOV>', SOS='<S>')
+_SpecialVocabWords_OovPadSeq = Namespace(PAD='<PAD>', OOV='<OOV>', SOS='<SOS>', EOS='<EOS>')
 
 
 def get_unique_list(lst: Iterable) -> list:
@@ -27,7 +27,7 @@ def get_special_words_by_vocab_type(vocab_type: VocabType) -> Namespace:
     if vocab_type == VocabType.Target:
         return _SpecialVocabWords_OnlyOov
     elif vocab_type == VocabType.SeqTarget:
-        return _SpecialVocabWords_OovPadSos
+        return _SpecialVocabWords_OovPadSeq
     else:
         return _SpecialVocabWords_OovAndPad
 

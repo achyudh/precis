@@ -2,10 +2,11 @@ import datetime
 import os
 
 import torch
+from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 from tqdm import tqdm, trange
 
-from lib.common.evaluators import Code2VecEvaluator
+from lib.common.evaluators import Code2SeqEvaluator
 from lib.data.dataset import DatasetSplit
 
 
@@ -16,9 +17,10 @@ class Code2SeqTrainer(object):
         self.vocab = reader.vocab
         self.optimizer = optimizer
 
-        self.loss_function = torch.nn.CrossEntropyLoss(reduction='mean')
+        target_pad_index = self.vocab.target_vocab.word_to_index[self.vocab.target_vocab.special_words.PAD]
+        self.loss_function = torch.nn.CrossEntropyLoss(reduction='mean', ignore_index=target_pad_index)
         self.train_dataset = dataset(config, reader, split=DatasetSplit.Train)
-        self.dev_evaluator = Code2VecEvaluator(config, model, reader, split=DatasetSplit.Dev)
+        self.dev_evaluator = Code2SeqEvaluator(config, model, reader, split=DatasetSplit.Dev)
 
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.snapshot_path = os.path.join(self.config.save_path, self.config.dataset, '%s.pt' % timestamp)
@@ -41,21 +43,19 @@ class Code2SeqTrainer(object):
             target_subtoken_lengths = batch.target_subtoken_lengths.to(self.config.device)
 
             context_valid_mask = batch.context_valid_mask.to(self.config.device)
-            target_indices = torch.transpose(batch.target_indices.to(self.config.device), 0, 1)
+            target_indices = batch.target_indices.to(self.config.device)
 
             logits = self.model(source_subtoken_indices, node_indices, target_subtoken_indices, source_subtoken_lengths,
                                 node_lengths, target_subtoken_lengths, context_valid_mask)
 
-            loss = 0
-            for di in range(self.config.max_target_length):
-                loss += self.loss_function(logits[di], target_indices[di])
-                # if target_indices[di].detach().item() == self.vocab.target_vocab.special_words.PAD:
-                #     break
+            loss = self.loss_function(torch.transpose(logits, 1, 2), target_indices)
 
             if self.config.n_gpu > 1:
                 loss = loss.mean()
 
             loss.backward()
+            clip_grad_norm_(self.model.parameters(), self.config.max_norm)
+
             self.optimizer.step()
             self.nb_train_steps += 1
 

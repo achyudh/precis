@@ -32,23 +32,24 @@ class Code2Seq(nn.Module):
 
         source_subtoken_agg = torch.sum(source_subtoken_embed * source_subtoken_mask, dim=2)  # (batch, max_contexts, subtoken_embedding_dim)
         target_subtoken_agg = torch.sum(target_subtoken_embed * target_subtoken_mask, dim=2)  # (batch, max_contexts, subtoken_embedding_dim)
+
         node_agg = self.encoder(node_embed, node_lengths, context_valid_mask)  # (batch, max_contexts, max_path_nodes, encoder_hidden_dim)
         context_embed = torch.cat([source_subtoken_agg, node_agg, target_subtoken_agg], dim=-1)  # (batch, max_contexts, context_embed_dim)
         context_embed = self.dropout(context_embed)
         context_embed = F.tanh(self.context_linear(context_embed))  # (batch, max_contexts, decoder_hidden_dim)
 
         # Get initial decoder input and hidden state
-        decoder_input = self.decoder.init_input()  # (batch,)
-        h_0, c_0 = self.decoder.init_hidden(context_embed, context_valid_mask)  # (batch, decoder_hidden_dim)
+        decoder_input = self.decoder.init_input(context_embed.shape[0])  # (batch,)
+        h_0, c_0 = self.decoder.init_hidden(context_embed, context_valid_mask, context_embed.shape[0])  # (batch, decoder_hidden_dim)
 
         logits = list()
-        for _ in range(self.config.max_target_length):
+        for _ in range(self.config.max_target_length + 1):
             decoder_output, h_0, c_0 = self.decoder(decoder_input, h_0, c_0, context_embed)
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach()  # Detach from history as input
-            logits.append(decoder_output)
+            logits.append(torch.unsqueeze(decoder_output, dim=1))  # (batch, target_vocab_size)
 
-        return logits
+        return torch.cat(logits, dim=1)  # (batch, max_target_len, target_vocab_size)
 
     def sequence_mask(self, lengths, maxlen, dtype=torch.bool):
         cumsum = torch.ones((*lengths.shape, maxlen), device=self.config.device).cumsum(dim=1)

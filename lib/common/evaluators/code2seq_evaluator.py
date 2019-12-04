@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from lib.common.metrics import TopKAccuracyMetric, SubtokenCompositionMetric
-from lib.common.processors import Code2VecMetricOutputProcessor
+from lib.common.processors import Code2SeqMetricOutputProcessor
 from lib.data.dataset import JavaSummarizationDataset
 
 # Suppress warnings from sklearn.metrics
@@ -19,7 +19,7 @@ class Code2SeqEvaluator(object):
         self.reader = reader
         self.loss_function = torch.nn.CrossEntropyLoss(reduction='mean')
         self.eval_data = JavaSummarizationDataset(config, reader, split)
-        self.metric_output_processor = Code2VecMetricOutputProcessor(config.top_k, reader.vocab, self.eval_data)
+        self.metric_output_processor = Code2SeqMetricOutputProcessor(config, reader.vocab, self.eval_data)
 
     def get_scores(self, silent=False):
         total_loss = 0
@@ -31,22 +31,31 @@ class Code2SeqEvaluator(object):
         subtoken_composition_metric = SubtokenCompositionMetric(self.reader.vocab.target_vocab.special_words)
 
         for batch in tqdm(eval_dataloader, desc="Evaluating", disable=silent):
-            source_token_indices = batch.source_token_indices.to(self.config.device)
-            path_indices = batch.path_indices.to(self.config.device)
-            target_token_indices = batch.target_token_indices.to(self.config.device)
+            source_subtoken_indices = batch.source_subtoken_indices.to(self.config.device)
+            node_indices = batch.node_indices.to(self.config.device)
+            target_subtoken_indices = batch.target_subtoken_indices.to(self.config.device)
+
+            source_subtoken_lengths = batch.source_subtoken_lengths.to(self.config.device)
+            node_lengths = batch.node_lengths.to(self.config.device)
+            target_subtoken_lengths = batch.target_subtoken_lengths.to(self.config.device)
+
             context_valid_mask = batch.context_valid_mask.to(self.config.device)
-            target_indices = batch.target_index.to(self.config.device)
+            target_indices = batch.target_indices.to(self.config.device)
 
             with torch.no_grad():
-                logits = self.model(source_token_indices, path_indices, target_token_indices, context_valid_mask)
+                logits = self.model(source_subtoken_indices, node_indices, target_subtoken_indices,
+                                    source_subtoken_lengths, node_lengths, target_subtoken_lengths, context_valid_mask)
 
-            loss = self.loss_function(logits, target_indices)
-            top_k_output = self.metric_output_processor.process(logits, batch.sample_index)
-            top_k_accuracy_metric.update_batch(top_k_output)
-            subtoken_composition_metric.update_batch(top_k_output)
+            loss = 0
+            for di in range(self.config.max_target_length + 1):
+                loss += self.loss_function(logits[:, di], target_indices[:, di])
 
             if self.config.n_gpu > 1:
                 loss = loss.mean()
+
+            top_k_output = self.metric_output_processor.process(logits, batch.sample_index)
+            top_k_accuracy_metric.update_batch(top_k_output)
+            subtoken_composition_metric.update_batch(top_k_output)
 
             nb_eval_steps += 1
             total_loss += loss.item()

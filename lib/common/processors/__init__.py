@@ -1,3 +1,4 @@
 from .abstract_input_processor import AbstractInputProcessor
 from .abstract_output_processor import AbstractOutputProcessor
 from .code2vec_metric_output_processor import Code2VecMetricOutputProcessor
+from .code2seq_metric_output_processor import Code2SeqMetricOutputProcessor

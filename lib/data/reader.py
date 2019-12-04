@@ -117,13 +117,18 @@ class SequentialPathContextReader(AbstractContextReader):
         subtoken_pad_index = self.vocab.subtoken_vocab.word_to_index[subtoken_pad_string]
         node_pad_string = self.vocab.node_vocab.special_words.PAD
         node_pad_index = self.vocab.node_vocab.word_to_index[node_pad_string]
+
+        target_eos_string = self.vocab.target_vocab.special_words.EOS
         target_pad_string = self.vocab.target_vocab.special_words.PAD
+        target_eos_index = self.vocab.target_vocab.word_to_index[target_eos_string]
         target_pad_index = self.vocab.target_vocab.word_to_index[target_pad_string]
 
         target_label = row_parts[0]
         target_strings = target_label.split('|')[:self.config.max_target_length]
         target_strings = [self.vocab.target_vocab.lookup_index(x) for x in target_strings]
-        target_strings += [target_pad_index for _ in range(self.config.max_target_length - len(target_strings))]
+
+        target_strings.append(target_eos_index)
+        target_strings.extend(target_pad_index for _ in range(self.config.max_target_length - len(target_strings) + 1))
         target_indices = torch.tensor(target_strings)
 
         split_contexts = [x.split(',') for x in row_parts[1: self.config.max_contexts + 1]]

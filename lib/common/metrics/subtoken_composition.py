@@ -15,15 +15,16 @@ class SubtokenCompositionMetric:
 
     def update_batch(self, results):
         for original_name, top_words in results:
-            prediction = filter_impossible_names(self.special_words, top_words)[0]
-            original_subtokens = Counter(get_subtokens(original_name))
-            predicted_subtokens = Counter(get_subtokens(prediction))
-            self.num_true_positives += sum(count for element, count in predicted_subtokens.items()
-                                           if element in original_subtokens)
-            self.num_false_positives += sum(count for element, count in predicted_subtokens.items()
-                                            if element not in original_subtokens)
-            self.num_false_negatives += sum(count for element, count in original_subtokens.items()
-                                            if element not in predicted_subtokens)
+            prediction = filter_impossible_names(self.special_words, top_words)
+            if prediction:
+                original_subtokens = Counter(get_subtokens(original_name))
+                predicted_subtokens = Counter(get_subtokens(prediction[0]))
+                self.num_true_positives += sum(count for element, count in predicted_subtokens.items()
+                                               if element in original_subtokens)
+                self.num_false_positives += sum(count for element, count in predicted_subtokens.items()
+                                                if element not in original_subtokens)
+                self.num_false_negatives += sum(count for element, count in original_subtokens.items()
+                                                if element not in predicted_subtokens)
             self.num_predictions += 1
 
     @property
