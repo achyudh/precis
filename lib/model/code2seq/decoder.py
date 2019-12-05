@@ -32,8 +32,10 @@ class ContextDecoder(nn.Module):
     def init_input(self, batch_size):
         return torch.tensor([self.target_sos_index] * batch_size, device=self.config.device)  # (batch,)
 
-    def init_hidden(self, contexts, context_valid_mask, batch_size):
-        context_sum = torch.sum(contexts * torch.unsqueeze(context_valid_mask, -1), dim=1)  # (batch, decoder_hidden_dim)
-        h_0 = context_sum / self.config.max_contexts
-        c_0 = torch.zeros((batch_size, self.config.decoder_hidden_dim), device=self.config.device)
+    def init_state(self, contexts, context_valid_mask, batch_size):
+        context_sum = torch.sum(contexts, dim=1)  # (batch, decoder_hidden_dim)
+        context_counts = torch.sum(context_valid_mask, dim=1).unsqueeze(-1)  # (batch,)
+
+        c_0 = context_sum / context_counts  # (batch, decoder_hidden_dim)
+        h_0 = torch.zeros((batch_size, self.config.decoder_hidden_dim), device=self.config.device)
         return h_0, c_0

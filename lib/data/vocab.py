@@ -11,7 +11,7 @@ class VocabType(Enum):
     Token = 1
     Target = 2
     Path = 3
-    SeqTarget = 5
+    Sequence = 4
 
 
 _SpecialVocabWords_OnlyOov = Namespace(OOV='<OOV>')
@@ -26,7 +26,7 @@ def get_unique_list(lst: Iterable) -> list:
 def get_special_words_by_vocab_type(vocab_type: VocabType) -> Namespace:
     if vocab_type == VocabType.Target:
         return _SpecialVocabWords_OnlyOov
-    elif vocab_type == VocabType.SeqTarget:
+    elif vocab_type == VocabType.Sequence:
         return _SpecialVocabWords_OovPadSeq
     else:
         return _SpecialVocabWords_OovAndPad
@@ -198,6 +198,6 @@ class Code2SeqVocabContainer(AbstractVocabContainer):
         print('Node vocab. size: %d' % self.node_vocab.size)
 
         self.target_vocab = Vocab.create_from_freq_dict(
-            VocabType.SeqTarget, target_to_count, self.config.max_target_vocab_size,
-            special_words=get_special_words_by_vocab_type(VocabType.SeqTarget))
+            VocabType.Sequence, target_to_count, self.config.max_target_vocab_size,
+            special_words=get_special_words_by_vocab_type(VocabType.Sequence))
         print('Target vocab. size: %d' % self.target_vocab.size)

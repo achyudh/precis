@@ -1,10 +1,9 @@
 from argparse import Namespace
 from enum import Enum
 
-import torch
 from torch.utils.data import Dataset
 
-from lib.data.reader import PathContextReader, PathContextInput
+from lib.data.reader import PathContextReader
 
 
 class DatasetSplit(Enum):
@@ -38,7 +37,7 @@ class JavaSummarizationDataset(Dataset):
                     self.input_tensors.append(input_tensor)
                     self.target_labels.append(target_label)
 
-    def __getitem__(self, idx: int) -> PathContextInput:
+    def __getitem__(self, idx: int):
         return self.input_tensors[idx]
 
     def __len__(self) -> int:

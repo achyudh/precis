@@ -1,6 +1,6 @@
 import abc
 
-from lib.data.reader import PathContextInput
+from lib.data import PathContextInput
 
 
 class AbstractInputProcessor(abc.ABC):

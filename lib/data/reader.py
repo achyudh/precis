@@ -1,38 +1,12 @@
 import abc
 from argparse import Namespace
-from typing import NamedTuple, Tuple
+from typing import Tuple
 
 import numpy as np
 import torch
 
+from lib.data import PathContextInput, SequentialPathContextInput
 from lib.data.vocab import Code2VecVocabContainer, Code2SeqVocabContainer
-
-
-class PathContextInput(NamedTuple):
-    """
-    Used mostly for convenient-and-clear access to input parts (by their names).
-    """
-    path_indices: torch.Tensor
-    source_token_indices: torch.Tensor
-    target_token_indices: torch.Tensor
-    context_valid_mask: torch.Tensor
-    target_index: torch.Tensor
-    sample_index: torch.Tensor
-
-
-class SequentialPathContextInput(NamedTuple):
-    """
-    Used mostly for convenient-and-clear access to input parts (by their names).
-    """
-    node_indices: torch.Tensor
-    node_lengths: torch.Tensor
-    source_subtoken_indices: torch.Tensor
-    source_subtoken_lengths: torch.Tensor
-    target_subtoken_indices: torch.Tensor
-    target_subtoken_lengths: torch.Tensor
-    context_valid_mask: torch.Tensor
-    target_indices: torch.Tensor
-    sample_index: torch.Tensor
 
 
 class AbstractContextReader(abc.ABC):
@@ -113,6 +87,7 @@ class SequentialPathContextReader(AbstractContextReader):
 
     def _map_raw_dataset_row_to_input_tensors(self, index, *row_parts) -> Tuple:
         row_parts = list(row_parts)
+
         subtoken_pad_string = self.vocab.subtoken_vocab.special_words.PAD
         subtoken_pad_index = self.vocab.subtoken_vocab.word_to_index[subtoken_pad_string]
         node_pad_string = self.vocab.node_vocab.special_words.PAD
@@ -145,14 +120,14 @@ class SequentialPathContextReader(AbstractContextReader):
 
         node_strings = [x[1].split('|') for x in split_contexts][:self.config.max_path_nodes]
         node_lengths = [len(string) for string in node_strings]
-        node_lengths += [0 for _ in range(self.config.max_contexts - len(node_lengths))]
+        node_lengths += [1 for _ in range(self.config.max_contexts - len(node_lengths))]
         node_lengths = torch.tensor(node_lengths)
 
         node_indices = [[self.vocab.node_vocab.lookup_index(x) for x in string] for string in node_strings]
         node_indices = torch.tensor(self._pad_sequence(node_indices, pad_value=node_pad_index,
                                     shape=(self.config.max_contexts, self.config.max_path_nodes)))
 
-        target_subtoken_strings = [x[1].split('|') for x in split_contexts][:self.config.max_subtokens]
+        target_subtoken_strings = [x[2].split('|') for x in split_contexts][:self.config.max_subtokens]
         target_subtoken_lengths = [len(string) for string in target_subtoken_strings]
         target_subtoken_lengths += [0 for _ in range(self.config.max_contexts - len(target_subtoken_strings))]
         target_subtoken_lengths = torch.tensor(target_subtoken_lengths)
