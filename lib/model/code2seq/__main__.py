@@ -7,7 +7,7 @@ import torch.onnx
 from lib.common.evaluators import Code2SeqEvaluator
 from lib.common.trainers import Code2SeqTrainer
 from lib.data.dataset import JavaSummarizationDataset, DatasetSplit
-from lib.data.reader import SequentialPathContextReader
+from lib.data.readers import SequentialPathContextReader
 from lib.data.vocab import Code2SeqVocabContainer
 from lib.model import Code2Seq
 from lib.model.code2seq import Config

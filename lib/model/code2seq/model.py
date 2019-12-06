@@ -20,38 +20,39 @@ class Code2Seq(nn.Module):
         self.decoder = ContextDecoder(config, vocab)
 
     def forward(self, source_subtoken_indices, node_indices, target_subtoken_indices, source_subtoken_lengths,
-                node_lengths, target_subtoken_lengths, context_valid_mask):
+                node_lengths, target_subtoken_lengths, context_valid_mask, target_indices):
         source_subtoken_embed = self.subtoken_embedding(source_subtoken_indices)  # (batch, max_contexts, max_subtokens, subtoken_embedding_dim)
         target_subtoken_embed = self.subtoken_embedding(target_subtoken_indices)  # (batch, max_contexts, max_subtokens, subtoken_embedding_dim)
         node_embed = self.node_embedding(node_indices)  # (batch, max_contexts, max_path_nodes, node_embedding_dim)
 
-        source_subtoken_mask = torch.unsqueeze(self.sequence_mask(
-            source_subtoken_lengths, maxlen=self.config.max_subtokens, dtype=torch.float32), -1)  # (batch, max_contexts, max_subtokens, 1)
-        target_subtoken_mask = torch.unsqueeze(self.sequence_mask(
-            target_subtoken_lengths, maxlen=self.config.max_subtokens, dtype=torch.float32), -1)  # (batch, max_contexts, max_subtokens, 1)
+        source_subtoken_mask = self.sequence_mask(source_subtoken_lengths, max_len=self.config.max_subtokens)  # (batch, max_contexts, max_subtokens, 1)
+        target_subtoken_mask = self.sequence_mask(target_subtoken_lengths, max_len=self.config.max_subtokens)  # (batch, max_contexts, max_subtokens, 1)
 
         source_subtoken_agg = torch.sum(source_subtoken_embed * source_subtoken_mask, dim=2)  # (batch, max_contexts, subtoken_embedding_dim)
         target_subtoken_agg = torch.sum(target_subtoken_embed * target_subtoken_mask, dim=2)  # (batch, max_contexts, subtoken_embedding_dim)
+        node_agg = self.encoder(node_embed, node_lengths) * context_valid_mask.unsqueeze(-1)  # (batch, max_contexts, max_path_nodes, encoder_hidden_dim)
 
-        node_agg = self.encoder(node_embed, node_lengths, context_valid_mask)  # (batch, max_contexts, max_path_nodes, encoder_hidden_dim)
         context_embed = torch.cat([source_subtoken_agg, node_agg, target_subtoken_agg], dim=-1)  # (batch, max_contexts, context_embed_dim)
         context_embed = self.dropout(context_embed)
         context_embed = F.tanh(self.context_linear(context_embed))  # (batch, max_contexts, decoder_hidden_dim)
 
         # Get initial decoder input and hidden state
-        decoder_input = self.decoder.init_input(context_embed.shape[0])  # (batch,)
-        h_0, c_0 = self.decoder.init_hidden(context_embed, context_valid_mask, context_embed.shape[0])  # (batch, decoder_hidden_dim)
+        decoder_input = self.decoder.init_input(context_embed.shape[0])  # (batch, 1)
+        h_0, c_0 = self.decoder.init_state(context_embed, context_valid_mask, context_embed.shape[0])  # (batch, decoder_hidden_dim)
 
         logits = list()
-        for _ in range(self.config.max_target_length + 1):
+        for i0 in range(self.config.max_target_length):
             decoder_output, h_0, c_0 = self.decoder(decoder_input, h_0, c_0, context_embed)
-            topv, topi = decoder_output.topk(1)
-            decoder_input = topi.squeeze().detach()  # Detach from history as input
             logits.append(torch.unsqueeze(decoder_output, dim=1))  # (batch, target_vocab_size)
+
+            if self.training and self.config.teacher_forcing:
+                decoder_input = target_indices[:, i0]
+            else:
+                topv, topi = decoder_output.topk(1)
+                decoder_input = topi.squeeze().detach()  # Detach from history as input
 
         return torch.cat(logits, dim=1)  # (batch, max_target_len, target_vocab_size)
 
-    def sequence_mask(self, lengths, maxlen, dtype=torch.bool):
-        cumsum = torch.ones((*lengths.shape, maxlen), device=self.config.device).cumsum(dim=1)
-        mask = cumsum <= torch.unsqueeze(lengths, -1).type(torch.float32)
-        return mask.type(dtype)
+    def sequence_mask(self, lengths, max_len, dtype=torch.float32):
+        mask = torch.arange(max_len, device=self.config.device).expand(*lengths.shape, max_len) < lengths.unsqueeze(-1)
+        return mask.unsqueeze(-1).type(dtype)

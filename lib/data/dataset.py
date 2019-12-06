@@ -3,8 +3,6 @@ from enum import Enum
 
 from torch.utils.data import Dataset
 
-from lib.data.reader import PathContextReader
-
 
 class DatasetSplit(Enum):
     Train = 'train'
@@ -25,7 +23,7 @@ class DatasetSplit(Enum):
 
 
 class JavaSummarizationDataset(Dataset):
-    def __init__(self, config: Namespace, reader: PathContextReader, split: DatasetSplit):
+    def __init__(self, config: Namespace, reader, split: DatasetSplit):
         self.input_tensors = list()
         self.target_labels = list()
 

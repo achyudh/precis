@@ -16,10 +16,12 @@ class Code2SeqEvaluator(object):
     def __init__(self, config, model, reader, split):
         self.model = model
         self.config = config
-        self.reader = reader
-        self.loss_function = torch.nn.CrossEntropyLoss(reduction='mean')
+        self.vocab = reader.vocab
         self.eval_data = JavaSummarizationDataset(config, reader, split)
-        self.metric_output_processor = Code2SeqMetricOutputProcessor(config, reader.vocab, self.eval_data)
+        self.metric_output_processor = Code2SeqMetricOutputProcessor(config, self.vocab, self.eval_data)
+
+        target_pad_index = self.vocab.target_vocab.word_to_index[self.vocab.target_vocab.special_words.PAD]
+        self.loss_function = torch.nn.CrossEntropyLoss(reduction='mean', ignore_index=target_pad_index)
 
     def get_scores(self, silent=False):
         total_loss = 0
@@ -27,8 +29,8 @@ class Code2SeqEvaluator(object):
 
         self.model.eval()
         eval_dataloader = DataLoader(self.eval_data, shuffle=True, batch_size=self.config.batch_size)
-        top_k_accuracy_metric = TopKAccuracyMetric(self.config.top_k, self.reader.vocab.target_vocab.special_words)
-        subtoken_composition_metric = SubtokenCompositionMetric(self.reader.vocab.target_vocab.special_words)
+        top_k_accuracy_metric = TopKAccuracyMetric(self.config.top_k, self.vocab.target_vocab.special_words)
+        subtoken_composition_metric = SubtokenCompositionMetric(self.vocab.target_vocab.special_words)
 
         for batch in tqdm(eval_dataloader, desc="Evaluating", disable=silent):
             source_subtoken_indices = batch.source_subtoken_indices.to(self.config.device)
@@ -43,12 +45,10 @@ class Code2SeqEvaluator(object):
             target_indices = batch.target_indices.to(self.config.device)
 
             with torch.no_grad():
-                logits = self.model(source_subtoken_indices, node_indices, target_subtoken_indices,
-                                    source_subtoken_lengths, node_lengths, target_subtoken_lengths, context_valid_mask)
+                logits = self.model(source_subtoken_indices, node_indices, target_subtoken_indices,source_subtoken_lengths,
+                                    node_lengths, target_subtoken_lengths, context_valid_mask, None)
 
-            loss = 0
-            for di in range(self.config.max_target_length + 1):
-                loss += self.loss_function(logits[:, di], target_indices[:, di])
+            loss = self.loss_function(torch.transpose(logits, 1, 2), target_indices)
 
             if self.config.n_gpu > 1:
                 loss = loss.mean()

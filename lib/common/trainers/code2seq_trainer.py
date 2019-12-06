@@ -46,7 +46,7 @@ class Code2SeqTrainer(object):
             target_indices = batch.target_indices.to(self.config.device)
 
             logits = self.model(source_subtoken_indices, node_indices, target_subtoken_indices, source_subtoken_lengths,
-                                node_lengths, target_subtoken_lengths, context_valid_mask)
+                                node_lengths, target_subtoken_lengths, context_valid_mask, target_indices)
 
             loss = self.loss_function(torch.transpose(logits, 1, 2), target_indices)
 
