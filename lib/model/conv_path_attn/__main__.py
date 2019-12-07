@@ -4,13 +4,13 @@ import random
 import numpy as np
 import torch.onnx
 
-from lib.common.evaluators import Code2SeqEvaluator
-from lib.common.trainers import Code2SeqTrainer
+from lib.common.evaluators import ConvPathAttnEvaluator
+from lib.common.trainers import ConvPathAttnTrainer
 from lib.data.dataset import JavaSummarizationDataset, DatasetSplit
-from lib.data.readers import SequentialPathContextReader
+from lib.data.readers import SemiSequentialPathContextReader
 from lib.data.vocab import Code2SeqVocabContainer
-from lib.model import Code2Seq
-from lib.model.code2seq import Config
+from lib.model import ConvPathAttn
+from lib.model.conv_path_attn import Config
 
 # String templates for logging results
 LOG_HEADER = 'Split  Dev/Acc.  Dev/Pr.  Dev/Re.   Dev/F1   Dev/Loss'
@@ -18,7 +18,7 @@ LOG_TEMPLATE = ' '.join('{:>5s},{:>9.4f},{:>8.4f},{:8.4f},{:8.4f},{:10.4f}'.spli
 
 
 def evaluate_split(config, model, reader, split):
-    evaluator = Code2SeqEvaluator(config, model, reader, split)
+    evaluator = ConvPathAttnEvaluator(config, model, reader, split)
     accuracy, precision, recall, f1, avg_loss = evaluator.get_scores(silent=True)[0]
     print('\n' + LOG_HEADER)
     print(LOG_TEMPLATE.format(split.value, accuracy, precision, recall, f1, avg_loss))
@@ -56,8 +56,8 @@ if __name__ == '__main__':
         os.makedirs(save_path, exist_ok=True)
 
     vocab = Code2SeqVocabContainer(config)
-    reader = SequentialPathContextReader(config, vocab)
-    model = Code2Seq(config, vocab)
+    reader = SemiSequentialPathContextReader(config, vocab)
+    model = ConvPathAttn(config, vocab)
     model.to(device)
 
     if n_gpu > 1:
@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     parameter = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = torch.optim.Adam(parameter, lr=config.lr, weight_decay=config.weight_decay)
-    trainer = Code2SeqTrainer(config, model, dataset, reader, optimizer)
+    trainer = ConvPathAttnTrainer(config, model, dataset, reader, optimizer)
 
     if not config.pretrained_model:
         trainer.train()

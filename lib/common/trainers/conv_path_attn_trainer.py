@@ -6,21 +6,20 @@ from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 from tqdm import tqdm, trange
 
-from lib.common.evaluators import Code2SeqEvaluator
+from lib.common.evaluators import ConvPathAttnEvaluator
 from lib.data.dataset import DatasetSplit
 
 
-class Code2SeqTrainer(object):
+class ConvPathAttnTrainer(object):
     def __init__(self, config, model, dataset, reader, optimizer):
         self.config = config
         self.model = model
         self.vocab = reader.vocab
         self.optimizer = optimizer
 
-        target_pad_index = self.vocab.target_vocab.word_to_index[self.vocab.target_vocab.special_words.PAD]
-        self.loss_function = torch.nn.CrossEntropyLoss(reduction='mean', ignore_index=target_pad_index)
+        self.loss_function = torch.nn.CrossEntropyLoss(reduction='mean')
         self.train_dataset = dataset(config, reader, split=DatasetSplit.Train)
-        self.dev_evaluator = Code2SeqEvaluator(config, model, reader, split=DatasetSplit.Dev)
+        self.dev_evaluator = ConvPathAttnEvaluator(config, model, reader, split=DatasetSplit.Dev)
 
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.snapshot_path = os.path.join(self.config.save_path, self.config.dataset, '%s.pt' % timestamp)
@@ -45,27 +44,11 @@ class Code2SeqTrainer(object):
             context_valid_mask = batch.context_valid_mask.to(self.config.device)
             target_indices = batch.target_indices.to(self.config.device)
 
-            context_embed = self.model(source_subtoken_indices, node_indices, target_subtoken_indices,
+            logits = self.model(source_subtoken_indices, node_indices, target_subtoken_indices,
                                        source_subtoken_lengths, node_lengths, target_subtoken_lengths,
                                        context_valid_mask)
 
-            # Get initial decoder input and hidden state
-            decoder_input = self.model.decoder.init_input(context_embed.shape[0])  # (batch, 1)
-            h_0, c_0 = self.model.decoder.init_state(context_embed, context_valid_mask, context_embed.shape[0])  # (batch, decoder_hidden_dim)
-
-            logits = list()
-            for i0 in range(self.config.max_target_length):
-                decoder_output, h_0, c_0 = self.model.decoder(decoder_input, h_0, c_0, context_embed)
-                logits.append(torch.unsqueeze(decoder_output, dim=1))  # (batch, target_vocab_size)
-
-                if self.config.teacher_forcing:
-                    decoder_input = target_indices[:, i0]
-                else:
-                    decoder_input = decoder_output.topk(1).indices.squeeze().detach()  # Detach from history as input
-
-            logits = torch.cat(logits, dim=1)  # (batch, max_target_len, target_vocab_size)
-
-            loss = self.loss_function(torch.transpose(logits, 1, 2), target_indices)
+            loss = self.loss_function(logits, target_indices)
             if self.config.n_gpu > 1:
                 loss = loss.mean()
 

@@ -5,26 +5,22 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from lib.common.metrics import TopKAccuracyMetric, SubtokenCompositionMetric
-from lib.common.processors import Code2SeqMetricOutputProcessor
+from lib.common.processors import Code2VecMetricOutputProcessor
 from lib.data.dataset import JavaSummarizationDataset
-from lib.util import BeamSearch
 
 # Suppress warnings from sklearn.metrics
 warnings.filterwarnings('ignore')
 
 
-class Code2SeqEvaluator(object):
+class ConvPathAttnEvaluator(object):
     def __init__(self, config, model, reader, split):
         self.config = config
         self.model = model
         self.vocab = reader.vocab
 
-        target_pad_index = self.vocab.target_vocab.word_to_index[self.vocab.target_vocab.special_words.PAD]
-        self.loss_function = torch.nn.CrossEntropyLoss(reduction='mean', ignore_index=target_pad_index)
-
+        self.loss_function = torch.nn.CrossEntropyLoss(reduction='mean')
         self.eval_data = JavaSummarizationDataset(config, reader, split)
-        self.beam_search = BeamSearch(config, model.decoder, reader.vocab)
-        self.metric_output_processor = Code2SeqMetricOutputProcessor(config, self.vocab, self.eval_data)
+        self.metric_output_processor = Code2VecMetricOutputProcessor(config.top_k, reader.vocab, self.eval_data)
 
     def get_scores(self, silent=False):
         total_loss = 0
@@ -48,15 +44,12 @@ class Code2SeqEvaluator(object):
             target_indices = batch.target_indices.to(self.config.device)
 
             with torch.no_grad():
-                context_embed = self.model(source_subtoken_indices, node_indices, target_subtoken_indices,
+                logits = self.model(source_subtoken_indices, node_indices, target_subtoken_indices,
                                            source_subtoken_lengths, node_lengths, target_subtoken_lengths,
                                            context_valid_mask)
 
-                top_k_sequences = self.beam_search.decode(context_embed, context_valid_mask)
-                logits = torch.cat([sequence[0].logits[0].unsqueeze(0) for sequence in top_k_sequences])
-
-            loss = self.loss_function(logits, target_indices[:, 0])
-            top_k_output = self.metric_output_processor.process(top_k_sequences, batch.sample_index)
+            loss = self.loss_function(logits, target_indices)
+            top_k_output = self.metric_output_processor.process(logits, batch.sample_index)
             top_k_accuracy_metric.update_batch(top_k_output)
             subtoken_composition_metric.update_batch(top_k_output)
 
