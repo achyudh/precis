@@ -8,7 +8,7 @@ from lib.model.code2vec import Config
 from lib.common.evaluators import Code2VecEvaluator
 from lib.common.trainers import Code2VecTrainer
 from lib.data.dataset import JavaSummarizationDataset, DatasetSplit
-from lib.data.reader import PathContextReader
+from lib.data.readers import PathContextReader
 from lib.data.vocab import Code2VecVocabContainer
 from lib.model import Code2Vec
 

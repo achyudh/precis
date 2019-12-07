@@ -51,7 +51,7 @@ if __name__ == '__main__':
     train_examples = None
     dataset = dataset_map[config.dataset]
 
-    if not  config.pretrained_model:
+    if not config.pretrained_model:
         save_path = os.path.join(config.save_path, config.dataset)
         os.makedirs(save_path, exist_ok=True)
 

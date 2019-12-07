@@ -1,1 +1,1 @@
-from .beam_search import beam_search
+from .beam_search import BeamSearch

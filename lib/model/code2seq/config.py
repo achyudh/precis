@@ -6,8 +6,10 @@ from lib import Config
 class Code2SeqConfig(Config):
     def __init__(self):
         parser = self.get_args()
-        parser.add_argument('--top-k', type=int, default=1)
+        parser.add_argument('--beam-width', type=int, default=5)
         parser.add_argument('--teacher-forcing', action='store_true')
+        parser.add_argument('--target-length-norm', type=int, default=0)
+        parser.add_argument('--target-length-norm-factor', type=float, default=5.0)
 
         parser.add_argument('--max-norm', type=float, default=5)
         parser.add_argument('--max-contexts', type=int, default=200)

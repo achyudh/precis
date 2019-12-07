@@ -23,7 +23,7 @@ class DatasetSplit(Enum):
 
 
 class JavaSummarizationDataset(Dataset):
-    def __init__(self, config: Namespace, reader, split: DatasetSplit):
+    def __init__(self, config: Namespace, reader, split):
         self.input_tensors = list()
         self.target_labels = list()
 
