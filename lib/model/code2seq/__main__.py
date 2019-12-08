@@ -7,8 +7,8 @@ import torch.onnx
 from lib.common.evaluators import Code2SeqEvaluator
 from lib.common.trainers import Code2SeqTrainer
 from lib.data.dataset import JavaSummarizationDataset, DatasetSplit
-from lib.data.readers import SequentialPathContextReader
-from lib.data.vocab import Code2SeqVocabContainer
+from lib.data.readers import SeqPathContextReader
+from lib.data.vocab import PathContextVocabContainer, VocabType
 from lib.model import Code2Seq
 from lib.model.code2seq import Config
 
@@ -55,8 +55,8 @@ if __name__ == '__main__':
         save_path = os.path.join(config.save_path, config.dataset)
         os.makedirs(save_path, exist_ok=True)
 
-    vocab = Code2SeqVocabContainer(config)
-    reader = SequentialPathContextReader(config, vocab)
+    vocab = PathContextVocabContainer(config, target_vocab_type=VocabType.Sequence)
+    reader = SeqPathContextReader(config, vocab)
     model = Code2Seq(config, vocab)
     model.to(device)
 

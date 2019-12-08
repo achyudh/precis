@@ -1,9 +1,9 @@
 import torch
 
-from lib.common.processors.abstract_output_processor import AbstractOutputProcessor
+from lib.common.processors.output_processor import OutputProcessor
 
 
-class Code2SeqMetricOutputProcessor(AbstractOutputProcessor):
+class Code2SeqMetricOutputProcessor(OutputProcessor):
     def __init__(self, config, vocab, dataset):
         self.config = config
         self.vocab = vocab

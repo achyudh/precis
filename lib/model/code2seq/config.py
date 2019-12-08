@@ -21,8 +21,8 @@ class Code2SeqConfig(Config):
         parser.add_argument('--node-embedding-dim', type=int, default=128)
         parser.add_argument('--target-embedding-dim', type=int, default=128)
         parser.add_argument('--subtoken-embedding-dim', type=int, default=128)
-        parser.add_argument('--max-subtoken-vocab-size', type=int, default=190000)
-        parser.add_argument('--max-node-vocab-size', type=int, default=27000)
+        parser.add_argument('--max-token-vocab-size', type=int, default=190000)
+        parser.add_argument('--max-path-vocab-size', type=int, default=27000)
         parser.add_argument('--max-target-vocab-size', type=int, default=27000)
 
         args = parser.parse_args()

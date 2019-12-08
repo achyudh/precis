@@ -9,7 +9,7 @@ from lib.common.evaluators import Code2VecEvaluator
 from lib.common.trainers import Code2VecTrainer
 from lib.data.dataset import JavaSummarizationDataset, DatasetSplit
 from lib.data.readers import PathContextReader
-from lib.data.vocab import Code2VecVocabContainer
+from lib.data.vocab.path_context_vocab_container import PathContextVocabContainer
 from lib.model import Code2Vec
 
 # String templates for logging results
@@ -55,7 +55,7 @@ if __name__ == '__main__':
         save_path = os.path.join(config.save_path, config.dataset)
         os.makedirs(save_path, exist_ok=True)
 
-    vocab = Code2VecVocabContainer(config)
+    vocab = PathContextVocabContainer(config)
     reader = PathContextReader(config, vocab)
     model = Code2Vec(config, vocab)
     model.to(device)

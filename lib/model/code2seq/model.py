@@ -2,19 +2,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from lib.data.vocab import PathContextVocabContainer
 from lib.model.code2seq import NodeEncoder, ContextDecoder
 
 
 class Code2Seq(nn.Module):
-    def __init__(self, config, vocab):
+    def __init__(self, config, vocab: PathContextVocabContainer):
         super().__init__()
         self.config = config
         self.encoder = NodeEncoder(config)
         self.decoder = ContextDecoder(config, vocab)
 
         self.dropout = nn.Dropout(config.dropout_rate)
-        self.node_embedding = nn.Embedding(vocab.node_vocab.size, config.node_embedding_dim)
-        self.subtoken_embedding = nn.Embedding(vocab.subtoken_vocab.size, config.subtoken_embedding_dim)
+        self.node_embedding = nn.Embedding(vocab.path_vocab.size, config.node_embedding_dim)
+        self.subtoken_embedding = nn.Embedding(vocab.token_vocab.size, config.subtoken_embedding_dim)
         self.context_linear = nn.Linear(2 * (config.subtoken_embedding_dim + config.encoder_hidden_dim),
                                         config.decoder_hidden_dim, bias=False)
 

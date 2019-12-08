@@ -6,17 +6,17 @@ import torch
 
 from lib.data import SequentialPathContextInput
 from lib.data.readers.context_reader import ContextReader
-from lib.data.vocab import Code2SeqVocabContainer
+from lib.data.vocab import PathContextVocabContainer
 
 
 class SemiSequentialPathContextReader(ContextReader):
-    def __init__(self, config: Namespace, vocab: Code2SeqVocabContainer):
+    def __init__(self, config: Namespace, vocab: PathContextVocabContainer):
         super().__init__(config)
         self.vocab = vocab
-        self.node_pad_index = vocab.node_vocab.word_to_index[vocab.node_vocab.special_words.PAD]
+        self.node_pad_index = vocab.path_vocab.word_to_index[vocab.path_vocab.special_words.PAD]
         self.target_eos_index = vocab.target_vocab.word_to_index[vocab.target_vocab.special_words.EOS]
         self.target_pad_index = vocab.target_vocab.word_to_index[vocab.target_vocab.special_words.PAD]
-        self.subtoken_pad_index = vocab.subtoken_vocab.word_to_index[vocab.subtoken_vocab.special_words.PAD]
+        self.subtoken_pad_index = vocab.token_vocab.word_to_index[vocab.token_vocab.special_words.PAD]
 
     def is_valid_input_row(self, input_tensor, split) -> bool:
         any_context_is_valid = (torch.max(input_tensor.source_subtoken_indices).item() != self.subtoken_pad_index |
@@ -46,7 +46,7 @@ class SemiSequentialPathContextReader(ContextReader):
         node_lengths += [1 for _ in range(self.config.max_contexts - len(node_lengths))]
         node_lengths = torch.tensor(node_lengths)
 
-        node_indices = [[self.vocab.node_vocab.lookup_index(x) for x in string] for string in node_strings]
+        node_indices = [[self.vocab.path_vocab.lookup_index(x) for x in string] for string in node_strings]
         node_indices = torch.tensor(self._pad_sequence(node_indices, pad_value=self.node_pad_index,
                                     shape=(self.config.max_contexts, self.config.max_path_nodes)))
 
@@ -74,7 +74,7 @@ class SemiSequentialPathContextReader(ContextReader):
         subtoken_lengths += [0 for _ in range(self.config.max_contexts - len(subtoken_strings))]
         subtoken_lengths = torch.tensor(subtoken_lengths)
 
-        subtoken_indices = [[self.vocab.subtoken_vocab.lookup_index(x) for x in string] for string in subtoken_strings]
+        subtoken_indices = [[self.vocab.token_vocab.lookup_index(x) for x in string] for string in subtoken_strings]
         subtoken_indices = torch.tensor(self._pad_sequence(subtoken_indices, pad_value=self.subtoken_pad_index,
                                         shape=(self.config.max_contexts, self.config.max_subtokens)))
 

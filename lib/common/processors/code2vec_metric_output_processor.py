@@ -1,11 +1,11 @@
 import torch
 
-from lib.common.processors.abstract_output_processor import AbstractOutputProcessor
-from lib.data.vocab import Code2VecVocabContainer
+from lib.common.processors.output_processor import OutputProcessor
+from lib.data.vocab.path_context_vocab_container import PathContextVocabContainer
 
 
-class Code2VecMetricOutputProcessor(AbstractOutputProcessor):
-    def __init__(self, k: int, vocab: Code2VecVocabContainer, dataset):
+class Code2VecMetricOutputProcessor(OutputProcessor):
+    def __init__(self, k: int, vocab: PathContextVocabContainer, dataset):
         self.k = k
         self.vocab = vocab
         self.dataset = dataset

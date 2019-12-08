@@ -5,13 +5,12 @@ import torch
 
 from lib.data import PathContextInput
 from lib.data.readers.context_reader import ContextReader
-from lib.data.vocab import Code2VecVocabContainer
+from lib.data.vocab.path_context_vocab_container import PathContextVocabContainer
 
 
 class PathContextReader(ContextReader):
-    def __init__(self, config: Namespace, vocab: Code2VecVocabContainer):
-        super().__init__(config)
-        self.vocab = vocab
+    def __init__(self, config: Namespace, vocab: PathContextVocabContainer):
+        super().__init__(config, vocab)
 
     def is_valid_input_row(self, input_tensor, split) -> bool:
         token_pad_index = self.vocab.token_vocab.word_to_index[self.vocab.token_vocab.special_words.PAD]

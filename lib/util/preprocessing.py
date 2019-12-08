@@ -1,4 +1,5 @@
-from typing import Optional, Tuple
+from collections import OrderedDict
+from typing import Optional, Tuple, Iterable
 
 
 def get_subtokens(str):
@@ -17,3 +18,7 @@ def get_first_match_word_from_top_k(special_words, original_name, top_predicted_
         if normalized_original_name == normalized_possible_suggestion:
             return suggestion_idx, predicted_word
     return None
+
+
+def get_unique_list(lst: Iterable) -> list:
+    return list(OrderedDict(((item, 0) for item in lst)).keys())

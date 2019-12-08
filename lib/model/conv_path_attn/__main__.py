@@ -8,7 +8,7 @@ from lib.common.evaluators import ConvPathAttnEvaluator
 from lib.common.trainers import ConvPathAttnTrainer
 from lib.data.dataset import JavaSummarizationDataset, DatasetSplit
 from lib.data.readers import SemiSequentialPathContextReader
-from lib.data.vocab import Code2SeqVocabContainer
+from lib.data.vocab import PathContextVocabContainer
 from lib.model import ConvPathAttn
 from lib.model.conv_path_attn import Config
 
@@ -55,7 +55,7 @@ if __name__ == '__main__':
         save_path = os.path.join(config.save_path, config.dataset)
         os.makedirs(save_path, exist_ok=True)
 
-    vocab = Code2SeqVocabContainer(config)
+    vocab = PathContextVocabContainer(config)
     reader = SemiSequentialPathContextReader(config, vocab)
     model = ConvPathAttn(config, vocab)
     model.to(device)
