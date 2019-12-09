@@ -7,7 +7,7 @@ import torch.onnx
 from lib.common.evaluators import ConvPathAttnEvaluator
 from lib.common.trainers import ConvPathAttnTrainer
 from lib.data.dataset import JavaSummarizationDataset, DatasetSplit
-from lib.data.readers import SemiSequentialPathContextReader
+from lib.data.readers import SemiSeqPathContextReader
 from lib.data.vocab import PathContextVocabContainer
 from lib.model import ConvPathAttn
 from lib.model.conv_path_attn import Config
@@ -56,7 +56,7 @@ if __name__ == '__main__':
         os.makedirs(save_path, exist_ok=True)
 
     vocab = PathContextVocabContainer(config)
-    reader = SemiSequentialPathContextReader(config, vocab)
+    reader = SemiSeqPathContextReader(config, vocab)
     model = ConvPathAttn(config, vocab)
     model.to(device)
 

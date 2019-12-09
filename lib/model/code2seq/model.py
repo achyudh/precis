@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from lib.data.vocab import PathContextVocabContainer
 from lib.model.code2seq import NodeEncoder, ContextDecoder
@@ -34,7 +33,7 @@ class Code2Seq(nn.Module):
 
         context_embed = torch.cat([source_subtoken_agg, node_agg, target_subtoken_agg], dim=-1)  # (batch, max_contexts, context_embed_dim)
         context_embed = self.dropout(context_embed)
-        context_embed = F.tanh(self.context_linear(context_embed))  # (batch, max_contexts, decoder_hidden_dim)
+        context_embed = torch.tanh(self.context_linear(context_embed))  # (batch, max_contexts, decoder_hidden_dim)
 
         return context_embed
 

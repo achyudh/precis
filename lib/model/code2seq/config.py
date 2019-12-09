@@ -8,10 +8,11 @@ class Code2SeqConfig(Config):
         parser = self.get_args()
         parser.add_argument('--beam-width', type=int, default=5)
         parser.add_argument('--teacher-forcing', action='store_true')
+        parser.add_argument('--context-sampling', action='store_true')
+        parser.add_argument('--clip-grad-norm', type=float, default=5.0)
         parser.add_argument('--target-length-norm', type=int, default=0)
         parser.add_argument('--target-length-norm-factor', type=float, default=5.0)
 
-        parser.add_argument('--max-norm', type=float, default=5)
         parser.add_argument('--max-contexts', type=int, default=200)
         parser.add_argument('--max-subtokens', type=int, default=5)
         parser.add_argument('--max-path-nodes', type=int, default=9)

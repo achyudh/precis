@@ -7,11 +7,6 @@ class ConvPathAttnConfig(Config):
     def __init__(self):
         parser = self.get_args()
         parser.add_argument('--top-k', type=int, default=5)
-        parser.add_argument('--teacher-forcing', action='store_true')
-        parser.add_argument('--target-length-norm', type=int, default=0)
-        parser.add_argument('--target-length-norm-factor', type=float, default=5.0)
-
-        parser.add_argument('--max-norm', type=float, default=5)
         parser.add_argument('--max-contexts', type=int, default=200)
         parser.add_argument('--max-subtokens', type=int, default=5)
         parser.add_argument('--max-path-nodes', type=int, default=9)
@@ -21,8 +16,8 @@ class ConvPathAttnConfig(Config):
         parser.add_argument('--node-embedding-dim', type=int, default=128)
         parser.add_argument('--target-embedding-dim', type=int, default=128)
         parser.add_argument('--subtoken-embedding-dim', type=int, default=128)
-        parser.add_argument('--max-subtoken-vocab-size', type=int, default=190000)
-        parser.add_argument('--max-node-vocab-size', type=int, default=27000)
+        parser.add_argument('--max-token-vocab-size', type=int, default=190000)
+        parser.add_argument('--max-path-vocab-size', type=int, default=27000)
         parser.add_argument('--max-target-vocab-size', type=int, default=261245)
 
         args = parser.parse_args()

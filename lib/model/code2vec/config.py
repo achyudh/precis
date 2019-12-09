@@ -8,6 +8,7 @@ class Code2VecConfig(Config):
         parser = self.get_args()
         parser.add_argument('--top-k', type=int, default=1)
         parser.add_argument('--max-contexts', type=int, default=200)
+        parser.add_argument('--context-sampling', action='store_true')
         parser.add_argument('--path-embedding-dim', type=int, default=128)
         parser.add_argument('--token-embedding-dim', type=int, default=128)
         parser.add_argument('--max-token-vocab-size', type=int, default=1301136)

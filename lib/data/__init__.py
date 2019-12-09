@@ -1,2 +1,3 @@
 from .context_input import PathContextInput
-from .context_input import SequentialPathContextInput
+from .context_input import SeqPathContextInput
+from .context_input import SemiSeqPathContextInput

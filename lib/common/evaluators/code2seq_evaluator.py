@@ -1,5 +1,3 @@
-import warnings
-
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -8,9 +6,6 @@ from lib.common.metrics import TopKAccuracyMetric, SubtokenCompositionMetric
 from lib.common.processors import Code2SeqMetricOutputProcessor
 from lib.data.dataset import JavaSummarizationDataset
 from lib.util import BeamSearch
-
-# Suppress warnings from sklearn.metrics
-warnings.filterwarnings('ignore')
 
 
 class Code2SeqEvaluator(object):
@@ -45,7 +40,7 @@ class Code2SeqEvaluator(object):
             target_subtoken_lengths = batch.target_subtoken_lengths.to(self.config.device)
 
             context_valid_mask = batch.context_valid_mask.to(self.config.device)
-            target_indices = batch.target_indices.to(self.config.device)
+            label_indices = batch.label_indices.to(self.config.device)
 
             with torch.no_grad():
                 context_embed = self.model(source_subtoken_indices, node_indices, target_subtoken_indices,
@@ -55,7 +50,7 @@ class Code2SeqEvaluator(object):
                 top_k_sequences = self.beam_search.decode(context_embed, context_valid_mask)
                 logits = torch.cat([sequence[0].logits[0].unsqueeze(0) for sequence in top_k_sequences])
 
-            loss = self.loss_function(logits, target_indices[:, 0])
+            loss = self.loss_function(logits, label_indices[:, 0])
             top_k_output = self.metric_output_processor.process(top_k_sequences, batch.sample_index)
             top_k_accuracy_metric.update_batch(top_k_output)
             subtoken_composition_metric.update_batch(top_k_output)

@@ -42,19 +42,17 @@ class ConvPathAttnTrainer(object):
             target_subtoken_lengths = batch.target_subtoken_lengths.to(self.config.device)
 
             context_valid_mask = batch.context_valid_mask.to(self.config.device)
-            target_indices = batch.target_indices.to(self.config.device)
+            label_indices = batch.label_index.to(self.config.device)
 
             logits = self.model(source_subtoken_indices, node_indices, target_subtoken_indices,
                                        source_subtoken_lengths, node_lengths, target_subtoken_lengths,
                                        context_valid_mask)
 
-            loss = self.loss_function(logits, target_indices)
+            loss = self.loss_function(logits, label_indices)
             if self.config.n_gpu > 1:
                 loss = loss.mean()
 
             loss.backward()
-            clip_grad_norm_(self.model.parameters(), self.config.max_norm)
-
             self.optimizer.step()
             self.nb_train_steps += 1
 

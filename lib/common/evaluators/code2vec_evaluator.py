@@ -1,5 +1,3 @@
-import warnings
-
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -7,9 +5,6 @@ from tqdm import tqdm
 from lib.common.metrics import TopKAccuracyMetric, SubtokenCompositionMetric
 from lib.common.processors import Code2VecMetricOutputProcessor
 from lib.data.dataset import JavaSummarizationDataset
-
-# Suppress warnings from sklearn.metrics
-warnings.filterwarnings('ignore')
 
 
 class Code2VecEvaluator(object):
@@ -35,12 +30,12 @@ class Code2VecEvaluator(object):
             path_indices = batch.path_indices.to(self.config.device)
             target_token_indices = batch.target_token_indices.to(self.config.device)
             context_valid_mask = batch.context_valid_mask.to(self.config.device)
-            target_indices = batch.target_index.to(self.config.device)
+            label_indices = batch.label_index.to(self.config.device)
 
             with torch.no_grad():
                 logits = self.model(source_token_indices, path_indices, target_token_indices, context_valid_mask)
 
-            loss = self.loss_function(logits, target_indices)
+            loss = self.loss_function(logits, label_indices)
             top_k_output = self.metric_output_processor.process(logits, batch.sample_index)
             top_k_accuracy_metric.update_batch(top_k_output)
             subtoken_composition_metric.update_batch(top_k_output)

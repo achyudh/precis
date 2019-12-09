@@ -4,18 +4,15 @@ from typing import Tuple
 import numpy as np
 import torch
 
-from lib.data import SequentialPathContextInput
-from lib.data.readers.context_reader import ContextReader
+from lib.data import SemiSeqPathContextInput
+from lib.data.readers.dataset_reader import DatasetReader
 from lib.data.vocab import PathContextVocabContainer
 
 
-class SemiSequentialPathContextReader(ContextReader):
+class SemiSeqPathContextReader(DatasetReader):
     def __init__(self, config: Namespace, vocab: PathContextVocabContainer):
-        super().__init__(config)
-        self.vocab = vocab
+        super().__init__(config, vocab)
         self.node_pad_index = vocab.path_vocab.word_to_index[vocab.path_vocab.special_words.PAD]
-        self.target_eos_index = vocab.target_vocab.word_to_index[vocab.target_vocab.special_words.EOS]
-        self.target_pad_index = vocab.target_vocab.word_to_index[vocab.target_vocab.special_words.PAD]
         self.subtoken_pad_index = vocab.token_vocab.word_to_index[vocab.token_vocab.special_words.PAD]
 
     def is_valid_input_row(self, input_tensor, split) -> bool:
@@ -27,14 +24,14 @@ class SemiSequentialPathContextReader(ContextReader):
             return any_context_is_valid
         else:
             target_oov_index = self.vocab.target_vocab.word_to_index[self.vocab.target_vocab.special_words.OOV]
-            word_is_valid = input_tensor.target_indices > target_oov_index
+            word_is_valid = input_tensor.label_index > target_oov_index
             return word_is_valid and any_context_is_valid
 
     def _get_input_tensors(self, index, *row_parts) -> Tuple:
         row_parts = list(row_parts)
 
-        target_label = row_parts[0]
-        target_indices = torch.tensor(self.vocab.target_vocab.lookup_index(target_label))
+        label_string = row_parts[0]
+        label_index = torch.tensor(self.vocab.target_vocab.lookup_index(label_string))
 
         split_contexts = [x.split(',') for x in row_parts[1: self.config.max_contexts + 1]]
 
@@ -57,7 +54,7 @@ class SemiSequentialPathContextReader(ContextReader):
                               torch.ne(torch.max(target_subtoken_indices, -1).values, self.subtoken_pad_index) |
                               torch.ne(torch.max(node_indices, -1).values, self.node_pad_index)).float()
 
-        return SequentialPathContextInput(
+        return SemiSeqPathContextInput(
             node_indices=node_indices,
             node_lengths=node_lengths,
             source_subtoken_indices=source_subtoken_indices,
@@ -65,9 +62,9 @@ class SemiSequentialPathContextReader(ContextReader):
             target_subtoken_indices=target_subtoken_indices,
             target_subtoken_lengths=target_subtoken_lengths,
             context_valid_mask=context_valid_mask,
-            target_indices=target_indices,
+            label_index=label_index,
             sample_index=torch.tensor(index)
-        ), target_label
+        ), label_string
 
     def _process_subtoken_strings(self, subtoken_strings):
         subtoken_lengths = [len(string) for string in subtoken_strings]

@@ -1,15 +1,16 @@
+import random
 from argparse import Namespace
 from typing import Tuple
 
 import numpy as np
 import torch
 
-from lib.data import SequentialPathContextInput
-from lib.data.readers.context_reader import ContextReader
+from lib.data import SemiSeqPathContextInput
+from lib.data.readers.dataset_reader import DatasetReader
 from lib.data.vocab import PathContextVocabContainer
 
 
-class SeqPathContextReader(ContextReader):
+class SeqPathContextReader(DatasetReader):
     def __init__(self, config: Namespace, vocab: PathContextVocabContainer):
         super().__init__(config, vocab)
         self.path_pad_index = vocab.path_vocab.word_to_index[vocab.path_vocab.special_words.PAD]
@@ -26,24 +27,29 @@ class SeqPathContextReader(ContextReader):
             return any_context_is_valid
         else:
             target_oov_index = self.vocab.target_vocab.word_to_index[self.vocab.target_vocab.special_words.OOV]
-            word_is_valid = torch.max(input_tensor.target_indices) > target_oov_index
+            word_is_valid = torch.max(input_tensor.label_indices) > target_oov_index
             return word_is_valid and any_context_is_valid
 
     def _get_input_tensors(self, index, *row_parts) -> Tuple:
         row_parts = list(row_parts)
 
         target_label = row_parts[0]
-        target_strings = target_label.split('|')[:self.config.max_target_length - 1]
-        target_strings = [self.vocab.target_vocab.lookup_index(x) for x in target_strings]
+        label_strings = target_label.split('|')[:self.config.max_target_length - 1]
+        label_strings = [self.vocab.target_vocab.lookup_index(x) for x in label_strings]
 
-        target_strings.append(self.target_eos_index)
-        target_strings.extend(self.target_pad_index for _ in range(self.config.max_target_length - len(target_strings)))
-        target_indices = torch.tensor(target_strings)
+        label_strings.append(self.target_eos_index)
+        label_strings.extend(self.target_pad_index for _ in range(self.config.max_target_length - len(label_strings)))
+        label_indices = torch.tensor(label_strings)
 
-        split_contexts = [x.split(',') for x in row_parts[1: self.config.max_contexts + 1]]
+        split_contexts = [x.split(',') for x in row_parts[1:]]
 
-        source_token_strings = [x[0].split('|') for x in split_contexts][:self.config.max_subtokens]
-        source_token_indices, source_token_lengths = self._process_subtoken_strings(source_token_strings)
+        if self.config.context_sampling:
+            split_contexts = random.choices(split_contexts, k=self.config.max_contexts)
+        else:
+            split_contexts = split_contexts[:self.config.max_contexts]
+
+        source_subtoken_strings = [x[0].split('|') for x in split_contexts][:self.config.max_subtokens]
+        source_subtoken_indices, source_subtoken_lengths = self._process_subtoken_strings(source_subtoken_strings)
 
         node_strings = [x[1].split('|') for x in split_contexts][:self.config.max_path_nodes]
         node_lengths = [len(string) for string in node_strings]
@@ -57,20 +63,20 @@ class SeqPathContextReader(ContextReader):
         target_subtoken_strings = [x[2].split('|') for x in split_contexts][:self.config.max_subtokens]
         target_subtoken_indices, target_subtoken_lengths = self._process_subtoken_strings(target_subtoken_strings)
 
-        context_valid_mask = (torch.ne(torch.max(source_token_indices, -1).values, self.token_pad_index) |
+        context_valid_mask = (torch.ne(torch.max(source_subtoken_indices, -1).values, self.token_pad_index) |
                               torch.ne(torch.max(target_subtoken_indices, -1).values, self.token_pad_index) |
                               torch.ne(torch.max(node_indices, -1).values, self.path_pad_index)).float()
 
-        return SequentialPathContextInput(
+        return SemiSeqPathContextInput(
+            sample_index=torch.tensor(index),
+            label_index=label_indices,
             node_indices=node_indices,
             node_lengths=node_lengths,
-            source_subtoken_indices=source_token_indices,
-            source_subtoken_lengths=source_token_lengths,
+            source_subtoken_indices=source_subtoken_indices,
+            source_subtoken_lengths=source_subtoken_lengths,
             target_subtoken_indices=target_subtoken_indices,
             target_subtoken_lengths=target_subtoken_lengths,
-            context_valid_mask=context_valid_mask,
-            target_indices=target_indices,
-            sample_index=torch.tensor(index)
+            context_valid_mask=context_valid_mask
         ), target_label
 
     def _process_subtoken_strings(self, subtoken_strings):

@@ -23,7 +23,7 @@ class Code2Vec(nn.Module):
         context_embed = self.input_dropout(context_embed)
 
         context_embed = torch.reshape(context_embed, (-1, self.config.context_vector_size))  # (batch * max_contexts, context_vector_size)
-        context_embed = F.tanh(self.input_linear(context_embed))  # (batch * max_contexts, context_vector_size)
+        context_embed = torch.tanh(self.input_linear(context_embed))  # (batch * max_contexts, context_vector_size)
         context_weights = self.attention(context_embed)  # (batch * max_contexts, 1)
         context_weights = torch.reshape(context_weights, (-1, self.config.max_contexts, 1))  # (batch, max_contexts, 1)
         context_weights += torch.unsqueeze(torch.log(context_valid_mask), dim=2)  # (batch, max_contexts, 1)

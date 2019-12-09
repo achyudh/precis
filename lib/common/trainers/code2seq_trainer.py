@@ -31,7 +31,7 @@ class Code2SeqTrainer(object):
 
     def train_epoch(self, train_dataloader):
         for batch in tqdm(train_dataloader, desc="Training"):
-            self.model.train()
+
             self.optimizer.zero_grad()
 
             source_subtoken_indices = batch.source_subtoken_indices.to(self.config.device)
@@ -43,7 +43,7 @@ class Code2SeqTrainer(object):
             target_subtoken_lengths = batch.target_subtoken_lengths.to(self.config.device)
 
             context_valid_mask = batch.context_valid_mask.to(self.config.device)
-            target_indices = batch.target_indices.to(self.config.device)
+            label_indices = batch.label_indices.to(self.config.device)
 
             context_embed = self.model(source_subtoken_indices, node_indices, target_subtoken_indices,
                                        source_subtoken_lengths, node_lengths, target_subtoken_lengths,
@@ -59,18 +59,18 @@ class Code2SeqTrainer(object):
                 logits.append(torch.unsqueeze(decoder_output, dim=1))  # (batch, target_vocab_size)
 
                 if self.config.teacher_forcing:
-                    decoder_input = target_indices[:, i0]
+                    decoder_input = label_indices[:, i0]
                 else:
                     decoder_input = decoder_output.topk(1).indices.squeeze().detach()  # Detach from history as input
 
             logits = torch.cat(logits, dim=1)  # (batch, max_target_len, target_vocab_size)
 
-            loss = self.loss_function(torch.transpose(logits, 1, 2), target_indices)
+            loss = self.loss_function(torch.transpose(logits, 1, 2), label_indices)
             if self.config.n_gpu > 1:
                 loss = loss.mean()
 
             loss.backward()
-            clip_grad_norm_(self.model.parameters(), self.config.max_norm)
+            clip_grad_norm_(self.model.parameters(), self.config.clip_grad_norm)
 
             self.optimizer.step()
             self.nb_train_steps += 1

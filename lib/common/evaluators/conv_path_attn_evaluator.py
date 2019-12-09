@@ -1,5 +1,3 @@
-import warnings
-
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -7,9 +5,6 @@ from tqdm import tqdm
 from lib.common.metrics import TopKAccuracyMetric, SubtokenCompositionMetric
 from lib.common.processors import Code2VecMetricOutputProcessor
 from lib.data.dataset import JavaSummarizationDataset
-
-# Suppress warnings from sklearn.metrics
-warnings.filterwarnings('ignore')
 
 
 class ConvPathAttnEvaluator(object):
@@ -41,14 +36,14 @@ class ConvPathAttnEvaluator(object):
             target_subtoken_lengths = batch.target_subtoken_lengths.to(self.config.device)
 
             context_valid_mask = batch.context_valid_mask.to(self.config.device)
-            target_indices = batch.target_indices.to(self.config.device)
+            label_index = batch.label_index.to(self.config.device)
 
             with torch.no_grad():
                 logits = self.model(source_subtoken_indices, node_indices, target_subtoken_indices,
                                            source_subtoken_lengths, node_lengths, target_subtoken_lengths,
                                            context_valid_mask)
 
-            loss = self.loss_function(logits, target_indices)
+            loss = self.loss_function(logits, label_index)
             top_k_output = self.metric_output_processor.process(logits, batch.sample_index)
             top_k_accuracy_metric.update_batch(top_k_output)
             subtoken_composition_metric.update_batch(top_k_output)

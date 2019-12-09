@@ -5,7 +5,7 @@ from typing import Tuple
 from lib.data.vocab import VocabContainer
 
 
-class ContextReader(abc.ABC):
+class DatasetReader(abc.ABC):
     def __init__(self, config: Namespace, vocab: VocabContainer):
         self.config = config
         self.vocab = vocab

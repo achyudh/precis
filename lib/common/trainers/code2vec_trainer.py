@@ -35,10 +35,10 @@ class Code2VecTrainer(object):
             path_indices = batch.path_indices.to(self.config.device)
             target_token_indices = batch.target_token_indices.to(self.config.device)
             context_valid_mask = batch.context_valid_mask.to(self.config.device)
-            target_indices = batch.target_index.to(self.config.device)
+            label_indices = batch.label_index.to(self.config.device)
 
             logits = self.model(source_token_indices, path_indices, target_token_indices, context_valid_mask)
-            loss = self.loss_function(logits, target_indices)
+            loss = self.loss_function(logits, label_indices)
 
             if self.config.n_gpu > 1:
                 loss = loss.mean()

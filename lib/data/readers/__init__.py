@@ -1,4 +1,4 @@
-from .context_reader import ContextReader
+from .dataset_reader import DatasetReader
 from .path_context_reader import PathContextReader
-from .semi_seq_path_context_reader import SemiSequentialPathContextReader
+from .semi_seq_path_context_reader import SemiSeqPathContextReader
 from .seq_path_context_reader import SeqPathContextReader
