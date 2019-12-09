@@ -35,9 +35,6 @@ class JavaSummarizationDataset(Dataset):
                     self.input_tensors.append(input_tensor)
                     self.target_labels.append(target_label)
 
-                if len(self.input_tensors) == 20000:
-                    break
-
     def __getitem__(self, idx: int):
         return self.input_tensors[idx]
 
