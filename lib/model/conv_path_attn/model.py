@@ -16,7 +16,7 @@ class ConvPathAttn(nn.Module):
         self.output_linear = nn.Linear(config.decoder_hidden_dim, vocab.target_vocab.size)
         self.path_embedding = nn.Embedding(vocab.path_vocab.size, config.node_embedding_dim)
         self.token_embedding = nn.Embedding(vocab.token_vocab.size, config.subtoken_embedding_dim)
-        self.context_linear = nn.Linear(2 * (config.subtoken_embedding_dim + config.encoder_hidden_dim),
+        self.context_linear = nn.Linear(2 * config.subtoken_embedding_dim + config.node_embedding_dim,
                                         config.decoder_hidden_dim, bias=False)
 
     def forward(self, source_subtoken_indices, node_indices, target_subtoken_indices, source_subtoken_lengths,
@@ -27,10 +27,11 @@ class ConvPathAttn(nn.Module):
 
         source_subtoken_mask = self.sequence_mask(source_subtoken_lengths, max_len=self.config.max_subtokens)  # (batch, max_contexts, max_subtokens, 1)
         target_subtoken_mask = self.sequence_mask(target_subtoken_lengths, max_len=self.config.max_subtokens)  # (batch, max_contexts, max_subtokens, 1)
+        node_subtoken_mask = self.sequence_mask(node_lengths, max_len=self.config.max_path_nodes)  # (batch, max_contexts, max_path_nodes, 1)
 
         source_subtoken_agg = torch.sum(source_subtoken_embed * source_subtoken_mask, dim=2)  # (batch, max_contexts, subtoken_embedding_dim)
         target_subtoken_agg = torch.sum(target_subtoken_embed * target_subtoken_mask, dim=2)  # (batch, max_contexts, subtoken_embedding_dim)
-        node_agg = self.encoder(node_embed, node_lengths) * context_valid_mask.unsqueeze(-1)  # (batch, max_contexts, max_path_nodes, encoder_hidden_dim)
+        node_agg = torch.sum(node_embed * node_subtoken_mask, dim=2)  # (batch, max_contexts, node_embedding_dim)
 
         context_embed = torch.cat([source_subtoken_agg, node_agg, target_subtoken_agg], dim=-1)  # (batch, max_contexts, context_embed_dim)
         context_embed = self.dropout(context_embed)
